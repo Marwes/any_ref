@@ -4,3 +4,9 @@ version = "0.1.0"
 authors = ["Markus <marwes91@gmail.com>"]
 
 [dependencies]
+
+# Can't have optional dependencies as dev-dependencies
+compiletest_rs = { version = "0.0.11", optional = true }
+
+[features]
+test = ["compiletest_rs"]
