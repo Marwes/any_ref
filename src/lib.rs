@@ -66,6 +66,35 @@ macro_rules! any_ref_inner {
         }
     };
 }
+macro_rules! any_ref_tuple {
+    () => { };
+    ($head: ident $($tail: ident)*) => {
+        any_ref_tuple!($($tail)*);
+
+        unsafe impl <'a, $head $(, $tail)*> $crate::Type<'a> for ($head, $($tail),*)
+            where $head: Type<'a>, $head::Static: Sized,
+                  $($tail: $crate::Type<'a>, $tail::Static: Sized),*
+        {
+            type Static = ($head::Static, $($tail::Static),*);
+        }
+        unsafe impl <'a, $head $(, $tail)*> $crate::AnyRef<'a> for ($head, $($tail),*)
+            where $head: Type<'a>, $head::Static: Sized,
+                  $($tail: $crate::Type<'a>, $tail::Static: Sized),*
+        {
+            any_ref_inner!();
+        }
+    }
+}
+
+unsafe impl <'a> Type<'a> for ()
+{
+    type Static = ();
+}
+unsafe impl <'a> AnyRef<'a> for ()
+{
+    any_ref_inner!();
+}
+any_ref_tuple!(A B C D E F G H I J K L);
 
 #[macro_export]
 macro_rules! any_ref {
