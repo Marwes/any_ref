@@ -25,6 +25,9 @@ pub fn type_id<'a, T>() -> TypeId
 /// #[macro_use]
 /// extern crate any_ref;
 ///
+/// struct MyWrapper(i32);
+/// any_ref!(MyWrapper);
+///
 /// struct MyType<T, U>(T, U);
 /// any_ref!(MyType<T, U>);
 ///
@@ -99,11 +102,11 @@ any_ref_tuple!(A B C D E F G H I J K L);
 #[macro_export]
 macro_rules! any_ref {
     ($t: ident) => {
-        unsafe impl <'a> Type<'a> for $t
+        unsafe impl <'a> $crate::Type<'a> for $t
         {
             type Static = $t;
         }
-        unsafe impl <'a> AnyRef<'a> for $t
+        unsafe impl <'a> $crate::AnyRef<'a> for $t
         {
             any_ref_inner!();
         }
