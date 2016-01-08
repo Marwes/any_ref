@@ -111,14 +111,24 @@ macro_rules! any_ref {
             any_ref_inner!();
         }
     };
-    ($t: ident<'a $(, $arg: ident)*>) => {
-        unsafe impl <'a $(, $arg)*> $crate::Type<'a> for $t<'a $(, $arg)*>
-            where $($arg: $crate::Type<'a>, $arg::Static: Sized),*
+    ($t: ident<'a>) => {
+        unsafe impl <'a> $crate::Type<'a> for $t<'a>
         {
-            type Static = $t<'static $(, $arg::Static)*>;
+            type Static = $t<'static>;
         }
-        unsafe impl <'a $(, $arg)*> $crate::AnyRef<'a> for $t<'a $(, $arg)*>
-            where $($arg: $crate::Type<'a>, $arg::Static: Sized),*
+        unsafe impl <'a> $crate::AnyRef<'a> for $t<'a>
+        {
+            any_ref_inner!();
+        }
+    };
+    ($t: ident<'a $(, $arg: ident)+>) => {
+        unsafe impl <'a $(, $arg)+> $crate::Type<'a> for $t<'a $(, $arg)+>
+            where $($arg: $crate::Type<'a>, $arg::Static: Sized),+
+        {
+            type Static = $t<'static $(, $arg::Static)+>;
+        }
+        unsafe impl <'a $(, $arg)+> $crate::AnyRef<'a> for $t<'a $(, $arg)+>
+            where $($arg: $crate::Type<'a>, $arg::Static: Sized),+
         {
             any_ref_inner!();
         }
@@ -300,5 +310,13 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(downcast_box::<Vec<&i32>>(result.err().unwrap()).ok(),
                    Some(Box::new(vec![&x])));
+    }
+
+    struct OnlyRef<'a>(&'a ());
+    any_ref!(OnlyRef<'a>);
+
+    #[test]
+    fn only_ref() {
+        assert!((&OnlyRef(&()) as &AnyRef).is::<OnlyRef>());
     }
 }
