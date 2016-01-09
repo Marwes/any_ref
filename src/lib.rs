@@ -7,12 +7,12 @@ use std::any::{Any, TypeId};
 /// replaced with 'static
 pub unsafe trait Type<'a> {
     /// Type which should be the same as `Self` but with the static lifetime
-    type Static: Any;
+    type Static: ?Sized + 'static;
 }
 
 /// Returns the `TypeId` for `T::Static`
 pub fn type_id<'a, T>() -> TypeId
-    where T: Type<'a>
+    where T: Type<'a>, T::Static: Any
 {
     TypeId::of::<T::Static>()
 }
@@ -85,8 +85,8 @@ macro_rules! any_ref_tuple {
             type Static = ($head::Static, $($tail::Static),*);
         }
         unsafe impl <'a, $head $(, $tail)*> $crate::AnyRef<'a> for ($head, $($tail),*)
-            where $head: Type<'a>, $head::Static: Sized,
-                  $($tail: $crate::Type<'a>, $tail::Static: Sized),*
+            where $head: Type<'a>, $head::Static: Sized + ::std::any::Any,
+                  $($tail: $crate::Type<'a>, $tail::Static: Sized + ::std::any::Any),*
         {
             any_ref_inner!();
         }
@@ -132,7 +132,7 @@ macro_rules! any_ref {
             type Static = $t<'static $(, $arg::Static)+>;
         }
         unsafe impl <'a $(, $arg)+> $crate::AnyRef<'a> for $t<'a $(, $arg)+>
-            where $($arg: $crate::Type<'a>, $arg::Static: Sized),+
+            where $($arg: $crate::Type<'a>, $arg::Static: Sized + ::std::any::Any),+
         {
             any_ref_inner!();
         }
@@ -144,7 +144,7 @@ macro_rules! any_ref {
             type Static = $t<$($arg::Static),*>;
         }
         unsafe impl <'a $(, $arg)*> $crate::AnyRef<'a> for $t<$($arg),*>
-            where $($arg: $crate::Type<'a>, $arg::Static: Sized),*
+            where $($arg: $crate::Type<'a>, $arg::Static: Sized + ::std::any::Any),*
         {
             any_ref_inner!();
         }
@@ -159,7 +159,7 @@ macro_rules! unsized_any_ref {
             type Static = $t<T::Static>;
         }
         unsafe impl <'a, T: ?Sized> $crate::AnyRef<'a> for $t<T>
-            where T: $crate::Type<'a>
+            where T: $crate::Type<'a>, T::Static: Sized + ::std::any::Any
         {
             any_ref_inner!();
         }
@@ -171,7 +171,7 @@ macro_rules! unsized_any_ref {
             type Static = $t<'static, T::Static>;
         }
         unsafe impl <'a, T: ?Sized> $crate::AnyRef<'a> for $t<'a, T>
-            where T: $crate::Type<'a>
+            where T: $crate::Type<'a>, T::Static: Sized + ::std::any::Any
         {
             any_ref_inner!();
         }
@@ -210,7 +210,7 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedL
 any_refs!(BTreeMap<K, V>, BTreeSet<T>, BinaryHeap<T>, HashMap<K, V>, HashSet<T>,
              LinkedList<T>, VecDeque<T>);
 
-any_refs!(i8 i16 i32 i64 isize u8 u16 u32 u64 usize f32 f64 String char);
+any_refs!(i8 i16 i32 i64 isize u8 u16 u32 u64 usize f32 f64 String char Any);
 
 unsafe impl<'a> Type<'a> for &'a str {
     type Static = &'static str;
@@ -226,80 +226,95 @@ unsafe impl<'a> AnyRef<'a> for &'a mut str {
     any_ref_inner!();
 }
 
-unsafe impl<'a, T: Type<'a>> Type<'a> for &'a [T] {
+unsafe impl<'a, T: Type<'a>> Type<'a> for &'a [T]
+    where T::Static: Sized {
     type Static = &'static [T::Static];
 }
-unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a [T] {
+unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a [T]
+    where T::Static: Sized + Any {
     any_ref_inner!();
 }
 
-unsafe impl<'a, T: Type<'a>> Type<'a> for &'a mut [T] {
+unsafe impl<'a, T: Type<'a>> Type<'a> for &'a mut [T]
+    where T::Static: Sized {
     type Static = &'static mut T::Static;
 }
-unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a mut [T] {
+unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a mut [T]
+    where T::Static: Sized + Any {
     any_ref_inner!();
 }
 
 unsafe impl<'a, T: Type<'a>> Type<'a> for &'a T {
     type Static = &'static T::Static;
 }
-unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a T {
+unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a T
+    where T::Static: Sized + Any {
     any_ref_inner!();
 }
 
 unsafe impl<'a, T: Type<'a>> Type<'a> for &'a mut T {
     type Static = &'static mut T::Static;
 }
-unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a mut T {
+unsafe impl<'a, T: Type<'a>> AnyRef<'a> for &'a mut T
+    where T::Static: Sized + Any {
     any_ref_inner!();
 }
 
 unsafe impl<'a, T: Type<'a>> Type<'a> for *const T {
     type Static = *const T::Static;
 }
-unsafe impl<'a, T: Type<'a>> AnyRef<'a> for *const T {
+unsafe impl<'a, T: Type<'a>> AnyRef<'a> for *const T
+    where T::Static: Sized + Any {
     any_ref_inner!();
 }
 
 unsafe impl<'a, T: Type<'a>> Type<'a> for *mut T {
     type Static = *mut T::Static;
 }
-unsafe impl<'a, T: Type<'a>> AnyRef<'a> for *mut T {
+unsafe impl<'a, T: Type<'a>> AnyRef<'a> for *mut T
+    where T::Static: Sized + Any {
     any_ref_inner!();
 }
 
 impl<'a: 'b, 'b> AnyRef<'a> + 'b {
     pub fn is<T>(&self) -> bool
-        where T: AnyRef<'a> + Type<'a>
+        where T: AnyRef<'a> + Type<'a>,
+              T::Static: Sized + Any
     {
         unsafe { self.as_any_ref().is::<T::Static>() }
     }
     pub fn downcast_ref<T>(&self) -> Option<&T>
-        where T: AnyRef<'a> + Type<'a>
+        where T: AnyRef<'a> + Type<'a>,
+              T::Static: Sized + Any
     {
         unsafe {
             self.as_any_ref()
                 .downcast_ref::<T::Static>()
-                .map(|x| mem::transmute(x))
+                .map(|x| mem::transmute_copy(&x))
         }
     }
     pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
-        where T: AnyRef<'a> + Type<'a>
+        where T: AnyRef<'a> + Type<'a>,
+              T::Static: Sized + Any
     {
         unsafe {
             self.as_any_mut()
                 .downcast_mut::<T::Static>()
-                .map(|x| mem::transmute(x))
+                .map(|x| mem::transmute_copy(&x))
         }
     }
 }
 
 pub fn downcast_box<'a: 'b, 'b, T>(b: Box<AnyRef<'a> + 'b>) -> Result<Box<T>, Box<AnyRef<'a> + 'b>>
-    where T: AnyRef<'a> + Type<'a>
+    where T: AnyRef<'a> + Type<'a>,
+          T::Static: Sized + Any
 {
     unsafe {
         if b.is::<T>() {
-            Ok(mem::transmute(b.as_any_box().downcast::<T::Static>().ok().unwrap()))
+            let b = b.as_any_box().downcast::<T::Static>().ok().unwrap();
+            let result = mem::transmute_copy(&b);
+            mem::forget(b);
+            Ok(result)
         } else {
             Err(b)
         }
