@@ -63,13 +63,15 @@ macro_rules! any_ref_inner {
         }
         unsafe fn as_any_mut(&mut self) -> &mut ::std::any::Any {
             use std::mem::{size_of, transmute_copy};
-            assert!(size_of::<&Self>() == size_of::<&<Self as $crate::Type<'a>>::Static>());
+            assert!(size_of::<&mut Self>() == size_of::<&mut <Self as $crate::Type<'a>>::Static>());
             transmute_copy::<&mut Self, &mut <Self as $crate::Type<'a>>::Static>(&self)
         }
         unsafe fn as_any_box(self: Box<Self>) -> Box<::std::any::Any> {
-            use std::mem::{size_of, transmute_copy};
-            assert!(size_of::<&Self>() == size_of::<&<Self as $crate::Type<'a>>::Static>());
-            transmute_copy::<Box<Self>, Box<<Self as $crate::Type<'a>>::Static>>(&self)
+            use std::mem::{forget, size_of, transmute_copy};
+            assert!(size_of::<Box<Self>>() == size_of::<Box<<Self as $crate::Type<'a>>::Static>>());
+            let b = transmute_copy::<Box<Self>, Box<<Self as $crate::Type<'a>>::Static>>(&self);
+            forget(self);
+            b
         }
     };
 }
@@ -290,7 +292,7 @@ impl<'a: 'b, 'b> AnyRef<'a> + 'b {
         unsafe {
             self.as_any_ref()
                 .downcast_ref::<T::Static>()
-                .map(|x| mem::transmute_copy(&x))
+                .map(|x| mem::transmute_copy::<&T::Static, &T>(&x))
         }
     }
     pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
@@ -300,7 +302,7 @@ impl<'a: 'b, 'b> AnyRef<'a> + 'b {
         unsafe {
             self.as_any_mut()
                 .downcast_mut::<T::Static>()
-                .map(|x| mem::transmute_copy(&x))
+                .map(|x| mem::transmute_copy::<&mut T::Static, &mut T>(&x))
         }
     }
 }
@@ -311,8 +313,10 @@ pub fn downcast_box<'a: 'b, 'b, T>(b: Box<AnyRef<'a> + 'b>) -> Result<Box<T>, Bo
 {
     unsafe {
         if b.is::<T>() {
+            use std::mem::size_of;
             let b = b.as_any_box().downcast::<T::Static>().ok().unwrap();
-            let result = mem::transmute_copy(&b);
+            assert!(size_of::<Box<T::Static>>() == size_of::<Box<T>>());
+            let result = mem::transmute_copy::<Box<T::Static>, Box<T>>(&b);
             mem::forget(b);
             Ok(result)
         } else {
