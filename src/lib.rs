@@ -57,15 +57,19 @@ pub unsafe trait AnyRef<'a> {
 macro_rules! any_ref_inner {
     () => {
         unsafe fn as_any_ref(&self) -> &::std::any::Any {
-            ::std::mem::transmute::<&Self, &<Self as $crate::Type<'a>>::Static>(self)
+            use std::mem::{size_of, transmute_copy};
+            assert!(size_of::<&Self>() == size_of::<&<Self as $crate::Type<'a>>::Static>());
+            transmute_copy::<&Self, &<Self as $crate::Type<'a>>::Static>(&self)
         }
         unsafe fn as_any_mut(&mut self) -> &mut ::std::any::Any {
-            ::std::mem::transmute::<&mut Self,
-                                    &mut <Self as $crate::Type<'a>>::Static>(self)
+            use std::mem::{size_of, transmute_copy};
+            assert!(size_of::<&Self>() == size_of::<&<Self as $crate::Type<'a>>::Static>());
+            transmute_copy::<&mut Self, &mut <Self as $crate::Type<'a>>::Static>(&self)
         }
         unsafe fn as_any_box(self: Box<Self>) -> Box<::std::any::Any> {
-            ::std::mem::transmute::<Box<Self>,
-                                    Box<<Self as $crate::Type<'a>>::Static>>(self)
+            use std::mem::{size_of, transmute_copy};
+            assert!(size_of::<&Self>() == size_of::<&<Self as $crate::Type<'a>>::Static>());
+            transmute_copy::<Box<Self>, Box<<Self as $crate::Type<'a>>::Static>>(&self)
         }
     };
 }
@@ -146,6 +150,34 @@ macro_rules! any_ref {
         }
     }
 }
+
+macro_rules! unsized_any_ref {
+    ($t: ident<T>) => {
+        unsafe impl <'a, T: ?Sized> $crate::Type<'a> for $t<T>
+            where T: $crate::Type<'a>
+        {
+            type Static = $t<T::Static>;
+        }
+        unsafe impl <'a, T: ?Sized> $crate::AnyRef<'a> for $t<T>
+            where T: $crate::Type<'a>
+        {
+            any_ref_inner!();
+        }
+    };
+    ($t: ident<'a, T>) => {
+        unsafe impl <'a, T: ?Sized> $crate::Type<'a> for $t<'a, T>
+            where T: $crate::Type<'a>
+        {
+            type Static = $t<'static, T::Static>;
+        }
+        unsafe impl <'a, T: ?Sized> $crate::AnyRef<'a> for $t<'a, T>
+            where T: $crate::Type<'a>
+        {
+            any_ref_inner!();
+        }
+    };
+}
+
 macro_rules! any_refs {
     ($($t: ident<$($arg: ident),+>),+) => {
         $(
@@ -163,10 +195,15 @@ use std::cell::{Cell, RefCell, Ref, RefMut, UnsafeCell};
 use std::sync::Arc;
 use std::rc::Rc;
 
-any_refs!(Box<T>, Rc<T>, Arc<T>, Vec<T>, Option<T>, Result<T, R>, Cell<T>, RefCell<T>,
-             UnsafeCell<T>);
-any_ref!(Ref<'a, T>);
-any_ref!(RefMut<'a, T>);
+unsized_any_ref!(Box<T>);
+unsized_any_ref!(Rc<T>);
+unsized_any_ref!(Arc<T>);
+unsized_any_ref!(RefCell<T>);
+unsized_any_ref!(UnsafeCell<T>);
+unsized_any_ref!(Ref<'a, T>);
+unsized_any_ref!(RefMut<'a, T>);
+
+any_refs!(Vec<T>, Option<T>, Result<T, R>, Cell<T>);
 
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque};
 
