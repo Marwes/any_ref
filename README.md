@@ -6,7 +6,7 @@ Rust library which implements a version of the [Any][] trait for types which con
 This crate contains unsafe code which has not been properly vetted so this crate may not be safe to use.
 
 # Usage
-```
+```rust
 #[macro_use]
 extern crate any_ref;
 use any_ref::AnyRef;
