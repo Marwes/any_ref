@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["downcast_box",""],["type_id","Returns the `TypeId` for `T::Static`"]],"macro":[["any_ref!",""],["any_ref_inner!",""]],"trait":[["AnyRef","`Any` for types containing borrows."],["Type","Trait which provides TypeId for types which are not static."]]});
